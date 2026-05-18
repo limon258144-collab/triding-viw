@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      // For this specific app, we might relax this if common providers don't verify
+      // But standard protocol is to check it.
+      return request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email in ['limon2581444@gmail.com', 'limon258144@gmail.com', 'limon0000@admin.local'] ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Users
+    match /users/{userId} {
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && (isAdmin() || request.query.limit <= 10);
+      
+      allow create: if isSignedIn() && isOwner(userId) && 
+        (
+          request.resource.data.role == 'user' || 
+          request.resource.data.email == 'limon2581444@gmail.com' ||
+          request.resource.data.email == 'limon258144@gmail.com' ||
+          request.resource.data.email == 'limon0000@admin.local'
+        ) &&
+        request.resource.data.balance == 0 &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.referralCode is string &&
+        (!('referredBy' in request.resource.data) || request.resource.data.referredBy == null || isValidId(request.resource.data.referredBy));
+
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (
+          isOwner(userId) && 
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['phoneNumber', 'withdrawalNumber', 'avatar', 'displayName', 'notificationPrefs', 'referralCode', 'referredBy', 'balance']) &&
+          (!('referredBy' in resource.data) || resource.data.referredBy == null || request.resource.data.referredBy == resource.data.referredBy) &&
+          (!('referralCode' in resource.data) || resource.data.referralCode == null || request.resource.data.referralCode == resource.data.referralCode)
+          // Balance can be increased/decreased by owner for socket parity.
+        ) ||
+        (
+          // Case 3: Referral credit - User A updates User B's balance when redeeming B's code
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance']) &&
+          request.resource.data.balance == resource.data.balance + 20 &&
+          getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.referredBy == userId
+        )
+      );
+    }
+
+    // Deposits
+    match /deposits/{depositId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.createdAt == request.time;
+      allow update, delete: if isAdmin();
+    }
+
+    // Withdrawals
+    match /withdrawals/{withdrawalId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.amount > 0 &&
+        request.resource.data.createdAt == request.time;
+      allow update, delete: if isAdmin();
+    }
+
+    // Trades
+    match /trades/{tradeId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.timestamp == request.time;
+      allow update, delete: if isAdmin();
+    }
+
+    // Settings
+    match /settings/global {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

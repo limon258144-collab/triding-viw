@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and balance information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string", "description": "User's full name" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "phoneNumber": { "type": "string", "description": "User mobile number" },
+        "withdrawalNumber": { "type": "string", "description": "Number for receiving withdrawals" },
+        "avatar": { "type": "string", "format": "uri", "description": "Profile picture URL" },
+        "notificationPrefs": {
+          "type": "object",
+          "properties": {
+            "tradeAlerts": { "type": "boolean" },
+            "depositNews": { "type": "boolean" },
+            "systemUpdates": { "type": "boolean" }
+          }
+        },
+        "balance": { "type": "number" },
+        "referralCode": { "type": "string", "description": "Unique code for this user to refer others" },
+        "referredBy": { "type": "string", "description": "UID of the user who referred this user" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "balance", "referralCode", "createdAt"]
+    },
+    "Deposit": {
+      "title": "Deposit",
+      "description": "Deposit request for manual bKash payments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "amount": { "type": "number" },
+        "walletNumber": { "type": "string" },
+        "transactionId": { "type": "string" },
+        "senderNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "walletNumber", "transactionId", "status", "createdAt"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Global app settings",
+      "type": "object",
+      "properties": {
+        "bkashNumber": { "type": "string" }
+      },
+      "required": ["bkashNumber"]
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "Withdrawal request for users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "amount": { "type": "number" },
+        "accountNumber": { "type": "string", "description": "The number to send money to" },
+        "method": { "type": "string", "enum": ["bKash", "Nagad", "Rocket"] },
+        "status": { "type": "string", "enum": ["pending", "completed", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "accountNumber", "method", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Collection of user profiles"
+    },
+    "deposits/{depositId}": {
+      "schema": "Deposit",
+      "description": "Collection of deposit requests"
+    },
+    "withdrawals/{withdrawalId}": {
+      "schema": "Withdrawal",
+      "description": "Collection of withdrawal requests"
+    },
+    "settings/global": {
+      "schema": "Setting",
+      "description": "Global configuration settings"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "QxTrade - Professional Binary Options Platform",
+  "description": "A high-performance trading platform for binary options and market analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
